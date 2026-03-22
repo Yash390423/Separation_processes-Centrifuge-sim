@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tubular Bowl Centrifuge Simulator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+
+  :root {
+    --bg: #0a0c10;
+    --surface: #11141c;
+    --border: #1e2330;
+    --accent: #00d4ff;
+    --accent2: #ff6b35;
+    --accent3: #7fff6b;
+    --text: #e8eaf0;
+    --muted: #5a6070;
+    --panel: #0d1018;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid bg */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    z-index: 1;
+    padding: 28px 40px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .logo-ring {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    border: 2px solid var(--accent);
+    display: grid; place-items: center;
+    animation: spin 8s linear infinite;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .logo-ring::after {
+    content: '';
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent);
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  header h1 {
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  header span {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    background: rgba(0,212,255,0.08);
+    border: 1px solid rgba(0,212,255,0.2);
+    padding: 2px 8px;
+    border-radius: 3px;
+    margin-left: 8px;
+    letter-spacing: 1px;
+  }
+  header p {
+    margin-left: auto;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+  }
+
+  .main {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 0;
+    min-height: calc(100vh - 85px);
+  }
+
+  /* ── SIDEBAR ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 24px 20px;
+    overflow-y: auto;
+    background: var(--panel);
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    letter-spacing: 2px;
+    color: var(--accent);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .param-group { margin-bottom: 26px; }
+
+  .param-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 10px;
+  }
+
+  label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    flex: 1;
+    white-space: nowrap;
+  }
+  label sub {
+    font-size: 0.6rem;
+  }
+
+  .val-box {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--accent);
+    background: rgba(0,212,255,0.06);
+    border: 1px solid rgba(0,212,255,0.15);
+    border-radius: 4px;
+    padding: 3px 8px;
+    width: 80px;
+    text-align: right;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+  .val-box:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-bottom: 14px;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    cursor: pointer;
+  }
+
+
+
+  /* ── RESULTS ── */
+  .result-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+  }
+  .result-card .rc-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .result-card .rc-val {
+    font-size: 1.3rem;
+    font-weight: 800;
+  }
+  .result-card .rc-unit {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-left: 4px;
+  }
+  .accent-cyan { color: var(--accent); }
+  .accent-orange { color: var(--accent2); }
+  .accent-green { color: var(--accent3); }
+
+  .status-pill {
+    display: inline-block;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    padding: 3px 10px;
+    border-radius: 20px;
+    letter-spacing: 1px;
+    margin-top: 6px;
+  }
+  .status-ok { background: rgba(127,255,107,0.12); color: var(--accent3); border: 1px solid rgba(127,255,107,0.3); }
+  .status-warn { background: rgba(255,107,53,0.12); color: var(--accent2); border: 1px solid rgba(255,107,53,0.3); }
+
+  /* ── CONTENT ── */
+  .content {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .top-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .chart-panel {
+    background: var(--panel);
+    padding: 24px;
+  }
+  .chart-panel h3 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  canvas { max-height: 240px; }
+
+  /* ── TRAJECTORY VIZ ── */
+  .traj-panel {
+    background: var(--panel);
+    padding: 24px;
+    border-top: 1px solid var(--border);
+  }
+  .traj-panel h3 {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  #bowlCanvas {
+    width: 100%;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #060810;
+    display: block;
+  }
+
+  /* ── EQUATIONS ── */
+  .eq-strip {
+    display: flex;
+    gap: 1px;
+    background: var(--border);
+    border-top: 1px solid var(--border);
+  }
+  .eq-block {
+    background: var(--surface);
+    flex: 1;
+    padding: 16px 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  .eq-block .eq-title {
+    color: var(--accent);
+    font-size: 0.6rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .eq-block .eq { color: var(--text); font-size: 0.72rem; }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  select {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    padding: 5px 8px;
+    border-radius: 4px;
+    width: 100%;
+    margin-bottom: 14px;
+    cursor: pointer;
+  }
+  select:focus { outline: none; border-color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-ring"></div>
+  <div>
+    <h1>Tubular Bowl Centrifuge <span>SIM v1.0</span></h1>
+    <div style="font-size:0.7rem; color:var(--muted); margin-top:3px; font-family:'Space Mono',monospace;">Blood Plasma Separation · Separation Processes</div>
+  </div>
+  <p>ChE · 240008016 · 019 · 020 · 038</p>
+</header>
+
+<div class="main">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="param-group">
+      <div class="section-label">Fluid Preset</div>
+      <select id="preset" onchange="applyPreset()">
+        <option value="blood">Whole Blood → Plasma</option>
+        <option value="water">Water / Silica</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+
+    <div class="param-group">
+      <div class="section-label">Bowl Geometry</div>
+
+      <div class="param-row">
+        <label>Length L (m)</label>
+        <input type="text" class="val-box" id="vL" value="0.73" onchange="syncSlider('L')">
+      </div>
+      <input type="range" id="sL" min="0.1" max="2" step="0.01" value="0.73" oninput="syncVal('L')">
+
+      <div class="param-row">
+        <label>Inner radius r<sub>1</sub> (m)</label>
+        <input type="text" class="val-box" id="vrA" value="0.022" onchange="syncSlider('rA')">
+      </div>
+      <input type="range" id="srA" min="0.005" max="0.1" step="0.001" value="0.022" oninput="syncVal('rA')">
+
+      <div class="param-row">
+        <label>Outer radius r<sub>2</sub> (m)</label>
+        <input type="text" class="val-box" id="vrB" value="0.038" onchange="syncSlider('rB')">
+      </div>
+      <input type="range" id="srB" min="0.01" max="0.15" step="0.001" value="0.038" oninput="syncVal('rB')">
+    </div>
+
+    <div class="param-group">
+      <div class="section-label">Operating Conditions</div>
+
+      <div class="param-row">
+        <label>Speed N (RPM)</label>
+        <input type="text" class="val-box" id="vRPM" value="15000" onchange="syncSlider('RPM')">
+      </div>
+      <input type="range" id="sRPM" min="1000" max="50000" step="100" value="15000" oninput="syncVal('RPM')">
+
+      <div class="param-row">
+        <label>Flow rate Q (m³/s)</label>
+        <input type="text" class="val-box" id="vQ" value="1.67e-6" onchange="syncSlider('Q')">
+      </div>
+      <input type="range" id="sQ" min="1e-8" max="1e-4" step="1e-8" value="1.67e-6" oninput="syncVal('Q')">
+    </div>
+
+    <div class="param-group">
+      <div class="section-label">Particle / Fluid Properties</div>
+
+      <div class="param-row">
+        <label>ρ<sub>p</sub> particle (kg/m³)</label>
+        <input type="text" class="val-box" id="vRhop" value="1100" onchange="syncSlider('Rhop')">
+      </div>
+      <input type="range" id="sRhop" min="900" max="3000" step="10" value="1100" oninput="syncVal('Rhop')">
+
+      <div class="param-row">
+        <label>ρ<sub>f</sub> fluid (kg/m³)</label>
+        <input type="text" class="val-box" id="vRhof" value="1025" onchange="syncSlider('Rhof')">
+      </div>
+      <input type="range" id="sRhof" min="800" max="2000" step="5" value="1025" oninput="syncVal('Rhof')">
+
+      <div class="param-row">
+        <label>μ viscosity (Pa·s)</label>
+        <input type="text" class="val-box" id="vMu" value="0.003" onchange="syncSlider('Mu')">
+      </div>
+      <input type="range" id="sMu" min="0.0001" max="0.05" step="0.0001" value="0.003" oninput="syncVal('Mu')">
+
+      <div class="param-row">
+        <label>Target d<sub>p</sub> (μm)</label>
+        <input type="text" class="val-box" id="vDp" value="2" onchange="syncSlider('Dp')">
+      </div>
+      <input type="range" id="sDp" min="0.1" max="20" step="0.1" value="2" oninput="syncVal('Dp')">
+    </div>
+
+    <div class="section-label">Key Results</div>
+
+    <div class="result-card">
+      <div class="rc-label">MAX FLOW RATE Q<sub>max</sub></div>
+      <div class="rc-val accent-cyan" id="rQmax">—<span class="rc-unit">mL/s</span></div>
+      <div style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);margin-top:4px;">threshold for target d<sub>p</sub></div>
+    </div>
+    <div class="result-card">
+      <div class="rc-label">ACTUAL FLOW RATE Q</div>
+      <div class="rc-val" id="rQact">—<span class="rc-unit">mL/s</span></div>
+    </div>
+    <div class="result-card">
+      <div class="rc-label">RESIDENCE TIME t<sub>res</sub></div>
+      <div class="rc-val" id="rTres">—<span class="rc-unit">s</span></div>
+      <div class="rc-label" style="margin-top:8px;">SETTLING TIME t<sub>settle</sub></div>
+      <div class="rc-val" id="rTsettle">—<span class="rc-unit">s</span></div>
+    </div>
+    <div class="result-card">
+      <div class="rc-label">SIGMA VALUE Σ</div>
+      <div class="rc-val accent-orange" id="rSigma">—<span class="rc-unit">m²</span></div>
+    </div>
+    <div class="result-card">
+      <div class="rc-label">G-FACTOR (ω²r / g)</div>
+      <div class="rc-val accent-green" id="rGfactor">—<span class="rc-unit">× g</span></div>
+    </div>
+    <div id="statusPill" class="status-pill status-ok" style="width:100%;text-align:center;margin-top:4px;">COMPUTING...</div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <div class="top-row">
+      <!-- Chart 1: cut diameter vs RPM -->
+      <div class="chart-panel">
+        <h3>Cut Diameter vs. Speed</h3>
+        <canvas id="chart1"></canvas>
+      </div>
+      <!-- Chart 2: Q vs Sigma -->
+      <div class="chart-panel">
+        <h3>Throughput vs. Particle Size</h3>
+        <canvas id="chart2"></canvas>
+      </div>
+    </div>
+
+    <!-- Bowl Trajectory Visualisation -->
+    <div class="traj-panel">
+      <h3>Particle Trajectory Visualisation · Bowl Cross-Section</h3>
+      <canvas id="bowlCanvas" height="220"></canvas>
+    </div>
+
+    <!-- Equations strip -->
+    <div class="eq-strip">
+      <div class="eq-block">
+        <div class="eq-title">Radial Velocity</div>
+        <div class="eq">v_r = dp²(ρp−ρf)ω²r / 18μ</div>
+      </div>
+      <div class="eq-block">
+        <div class="eq-title">Sigma Factor</div>
+        <div class="eq">Σ = πbω²(rB²−rA²) / g·ln(rB/r1)</div>
+      </div>
+      <div class="eq-block">
+        <div class="eq-title">Design Eqn</div>
+        <div class="eq">Q = vg · Σ</div>
+      </div>
+      <div class="eq-block">
+        <div class="eq-title">Cut Diameter</div>
+        <div class="eq">dpc = √(18μQ / π·L·ω²·(ρp−ρf)·F)</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── PRESETS ──
+const PRESETS = {
+  blood: { rhoP:1100, rhoF:1025, mu:0.003, L:0.73, rA:0.022, rB:0.038, RPM:15000, Q:1.67e-6, dp:2 },
+  water: { rhoP:2650, rhoF:998,  mu:0.001, L:0.5,  rA:0.02,  rB:0.04,  RPM:10000, Q:5e-6,    dp:5 },
+};
+
+function applyPreset() {
+  const p = PRESETS[document.getElementById('preset').value];
+  if (!p) return;
+  setParam('L', p.L); setParam('rA', p.rA); setParam('rB', p.rB);
+  setParam('RPM', p.RPM); setParam('Q', p.Q);
+  setParam('Rhop', p.rhoP); setParam('Rhof', p.rhoF); setParam('Mu', p.mu);
+  setParam('Dp', p.dp);
+  runSimulation();
+}
+
+function setParam(k, v) {
+  document.getElementById('v'+k).value = +v < 0.01 ? v.toExponential(2) : parseFloat(v.toFixed(5));
+  document.getElementById('s'+k).value = v;
+}
+
+function syncVal(k) {
+  const s = document.getElementById('s'+k).value;
+  document.getElementById('v'+k).value = +s < 0.01 ? (+s).toExponential(2) : parseFloat((+s).toFixed(5));
+  runSimulation();
+}
+function syncSlider(k) {
+  const v = parseFloat(document.getElementById('v'+k).value);
+  if (!isNaN(v)) document.getElementById('s'+k).value = v;
+  runSimulation();
+}
+
+// ── PHYSICS ──
+const g = 9.81;
+
+function getParams() {
+  return {
+    L: +document.getElementById('vL').value,
+    rA: +document.getElementById('vrA').value,
+    rB: +document.getElementById('vrB').value,
+    RPM: +document.getElementById('vRPM').value,
+    Q: +document.getElementById('vQ').value,
+    rhoP: +document.getElementById('vRhop').value,
+    rhoF: +document.getElementById('vRhof').value,
+    mu: +document.getElementById('vMu').value,
+    dp: +document.getElementById('vDp').value,
+  };
+}
+
+function compute(p) {
+  const omega = p.RPM * 2 * Math.PI / 60;
+  const deltaRho = p.rhoP - p.rhoF;
+  const lnRatio = Math.log(p.rB / p.rA);
+  const V = Math.PI * p.L * (p.rB**2 - p.rA**2);
+
+  // Sigma (equivalent settling area)
+  const sigma = Math.PI * p.L * omega**2 * (p.rB**2 - p.rA**2) / (g * lnRatio);
+
+  // G-factor at mid-radius
+  const gFactor = omega**2 * ((p.rA + p.rB) / 2) / g;
+
+  // Residence time (how long liquid stays in bowl)
+  const tRes = V / p.Q;
+
+  // Settling time for the TARGET particle (rA → rB)
+  // From integration: tSettle = 18μ·ln(rB/rA) / (dp²·Δρ·ω²)
+  const dp_m = p.dp * 1e-6;
+  const tSettle = 18 * p.mu * lnRatio / (dp_m**2 * deltaRho * omega**2);
+
+  // Q_max: threshold flow rate at which tRes = tSettle exactly
+  // tRes = V/Q  =>  Q_max = V / tSettle
+  const Q_max = V / tSettle;
+
+  return { omega, deltaRho, V, tRes, tSettle, Q_max, sigma, gFactor };
+}
+
+// ── CHARTS ──
+let c1, c2;
+
+// Fixed axis ranges — never rescale
+const CHART1_X = { min: 1000,  max: 50000 }; // RPM
+const CHART1_Y = { min: 0,     max: 50 };     // dpc in μm
+const CHART2_X = { min: 0.5,   max: 20 };     // dp in μm
+const CHART2_Y = { min: 0,     max: 50 };     // Q in mL/s
+
+function initCharts() {
+  const baseTick = { color:'#5a6070', font:{family:'Space Mono', size:9} };
+  const baseGrid = { color:'#1e2330' };
+
+  const cfg1 = {
+    type: 'line',
+    data: { labels:[], datasets:[{ label:'Cut diam. (μm) vs RPM', data:[],
+      borderColor:'#00d4ff', backgroundColor:'#00d4ff22', fill:true, tension:0.4, pointRadius:0 }] },
+    options: {
+      animation: false, responsive: true, maintainAspectRatio: true,
+      plugins: { legend:{ labels:{ color:'#5a6070', font:{family:'Space Mono', size:10} } } },
+      scales: {
+        x: { type:'linear', min: CHART1_X.min, max: CHART1_X.max,
+             ticks: baseTick, grid: baseGrid },
+        y: { type:'linear', min: CHART1_Y.min, max: CHART1_Y.max,
+             ticks: baseTick, grid: baseGrid }
+      }
+    }
+  };
+
+  const cfg2 = {
+    type: 'line',
+    data: { labels:[], datasets:[
+      { label:'Q_max (mL/s) vs d_p (μm)', data:[],
+        borderColor:'#ff6b35', backgroundColor:'#ff6b3522', fill:true, tension:0.4, pointRadius:0 },
+      { label:'Target d_p', data:[],
+        borderColor:'#00d4ff', borderDash:[4,4], borderWidth:1.5, pointRadius:0, fill:false },
+      { label:'Actual Q', data:[],
+        borderColor:'#7fff6b', borderDash:[4,4], borderWidth:1.5, pointRadius:0, fill:false },
+    ]},
+    options: {
+      animation: false, responsive: true, maintainAspectRatio: true,
+      plugins: { legend:{ labels:{ color:'#5a6070', font:{family:'Space Mono', size:10},
+        filter: (item) => item.datasetIndex === 0 } } },
+      scales: {
+        x: { type:'linear', min: CHART2_X.min, max: CHART2_X.max,
+             ticks: baseTick, grid: baseGrid },
+        y: { type:'linear', min: CHART2_Y.min, max: CHART2_Y.max,
+             ticks: baseTick, grid: baseGrid }
+      }
+    }
+  };
+
+  if (c1) c1.destroy();
+  if (c2) c2.destroy();
+  c1 = new Chart(document.getElementById('chart1'), cfg1);
+  c2 = new Chart(document.getElementById('chart2'), cfg2);
+}
+
+function updateCharts(p, res) {
+  // Chart 1: dpc (cut diameter) vs RPM — sweep RPM, keep dp fixed
+  const pts1 = [];
+  for (let rpm = 1000; rpm <= 50000; rpm += 500) {
+    const r = compute({...p, RPM: rpm});
+    // cut diameter at this RPM: particle where tSettle = tRes at current Q
+    // dpc = sqrt(18μ·V / (Q·Δρ·ω²·tSettle_norm)) — simplest: from Q_max = V/tSettle => dpc where Q_max=Q
+    // dp_crit: Q = πL(rB²-rA²)·dp²·Δρ·ω² / (18μ·ln(rB/rA))  =>  dp = sqrt(18μ·Q·lnR / (πL(rB²-rA²)·Δρ·ω²))
+    const omega_i = rpm * 2 * Math.PI / 60;
+    const lnR = Math.log(p.rB / p.rA);
+    const dpc_m = Math.sqrt(18 * p.mu * p.Q * lnR /
+                  (Math.PI * p.L * (p.rB**2 - p.rA**2) * (p.rhoP - p.rhoF) * omega_i**2));
+    pts1.push({ x: rpm, y: +Math.min(dpc_m * 1e6, CHART1_Y.max).toFixed(3) });
+  }
+  c1.data.datasets[0].data = pts1;
+  c1.update('none');
+
+  // Chart 2: Q_max vs dp — at current RPM/geometry, what is max Q for each dp?
+  // Q_max(dp) = πL(rB²-rA²)·dp²·Δρ·ω² / (18μ·ln(rB/rA))
+  const omega = p.RPM * 2 * Math.PI / 60;
+  const lnR = Math.log(p.rB / p.rA);
+  const pts2 = [];
+  for (let dp_um = 0.5; dp_um <= 20; dp_um += 0.25) {
+    const dp_m = dp_um * 1e-6;
+    const qmax = Math.PI * p.L * (p.rB**2 - p.rA**2) * dp_m**2 * (p.rhoP - p.rhoF) * omega**2
+                 / (18 * p.mu * lnR);
+    pts2.push({ x: dp_um, y: +Math.min(qmax * 1e6, CHART2_Y.max).toFixed(4) });
+  }
+  c2.data.datasets[0].data = pts2;
+
+  // Vertical line at current dp (target particle)
+  const currentQ_mls = Math.min(p.Q * 1e6, CHART2_Y.max);
+  c2.data.datasets[1].data = [{ x: p.dp, y: 0 }, { x: p.dp, y: CHART2_Y.max }];
+  // Horizontal line at current Q
+  c2.data.datasets[2].data = [{ x: CHART2_X.min, y: currentQ_mls }, { x: CHART2_X.max, y: currentQ_mls }];
+
+  c2.update('none');
+}
+
+// ── BOWL VISUALISATION ──
+function drawBowl(p, res) {
+  const cvs = document.getElementById('bowlCanvas');
+  cvs.width = cvs.offsetWidth;
+  const W = cvs.width, H = cvs.height;
+  const ctx = cvs.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  // Scaling: bowl displayed vertically
+  const pad = 20;
+  const bowlH = H - 2*pad;
+  const scale = bowlH / p.L;  // px per meter
+  const cx = W / 2;
+  const scaledRA = p.rA * scale * 5;  // exaggerated for visibility
+  const scaledRB = p.rB * scale * 5;
+
+  // Bowl walls
+  ctx.strokeStyle = '#1e2330';
+  ctx.fillStyle = 'rgba(0,212,255,0.04)';
+  ctx.lineWidth = 2;
+  // left wall
+  ctx.fillRect(cx - scaledRB, pad, scaledRB - scaledRA, bowlH);
+  ctx.strokeRect(cx - scaledRB, pad, scaledRB - scaledRA, bowlH);
+  // right wall (mirror)
+  ctx.fillRect(cx + scaledRA, pad, scaledRB - scaledRA, bowlH);
+  ctx.strokeRect(cx + scaledRA, pad, scaledRB - scaledRA, bowlH);
+
+  // Axis
+  ctx.setLineDash([4,4]);
+  ctx.strokeStyle = '#1e2330';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(cx, pad); ctx.lineTo(cx, pad+bowlH); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.font = '9px Space Mono';
+  ctx.fillStyle = '#5a6070';
+  ctx.fillText('r₁=' + (p.rA*1000).toFixed(1)+'mm', cx + scaledRA + 4, pad + 12);
+  ctx.fillText('r₂=' + (p.rB*1000).toFixed(1)+'mm', cx + scaledRB + 4, pad + 12);
+  ctx.fillText('L='+p.L.toFixed(2)+'m', 4, pad+bowlH/2);
+
+  // Draw N trajectories for particles of different sizes
+  const sizes = [
+    { dp: res.dpc * 0.5e-6, color: '#ff6b35', label: '0.5×dpc (not captured)' },
+    { dp: res.dpc * 1.0e-6, color: '#00d4ff', label: 'dpc (critical)' },
+    { dp: res.dpc * 2.0e-6, color: '#7fff6b', label: '2×dpc (captured)' },
+  ];
+
+  sizes.forEach(({ dp, color, label }) => {
+    const omega = res.omega;
+    const dRho = p.rhoP - p.rhoF;
+
+    // Particle enters at r = rA, must reach rB in time tRes
+    // r(t) = rA * exp(dp²·ΔΌ·ω²·t / 18μ)
+    const k = dp**2 * dRho * omega**2 / (18 * p.mu);
+    const steps = 100;
+    const dt = res.tRes / steps;
+
+    // axial velocity = L/tRes (uniform)
+    const vz = p.L / res.tRes;
+
+    let r = p.rA;
+    let z = 0; // from bottom
+
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.5;
+
+    const toX = (r_) => cx + r_ * scale * 5 * (Math.random() > 0.5 ? 1 : -1); // both sides
+    // draw on right side
+    const px0 = cx + r * scale * 5;
+    const py0 = pad + bowlH - z * scale;
+    ctx.moveTo(px0, py0);
+
+    let captured = false;
+    for (let i = 0; i < steps; i++) {
+      r = r * Math.exp(k * dt);
+      z += vz * dt;
+      const px = cx + Math.min(r, p.rB) * scale * 5;
+      const py = pad + bowlH - z * scale;
+      ctx.lineTo(px, py);
+      if (r >= p.rB) { captured = true; break; }
+    }
+    ctx.stroke();
+
+    // Endpoint dot
+    ctx.beginPath();
+    ctx.arc(cx + Math.min(r, p.rB) * scale * 5, pad + bowlH - Math.min(z, p.L) * scale, 4, 0, Math.PI*2);
+    ctx.fillStyle = color;
+    ctx.fill();
+  });
+
+  // Legend
+  const legItems = [
+    { color:'#ff6b35', label:'0.5×dpc (escapes)' },
+    { color:'#00d4ff', label:'dpc (critical)' },
+    { color:'#7fff6b', label:'2×dpc (captured)' },
+  ];
+  legItems.forEach(({color, label}, i) => {
+    ctx.fillStyle = color;
+    ctx.fillRect(W - 160, pad + 4 + i*18, 12, 8);
+    ctx.fillStyle = '#5a6070';
+    ctx.font = '9px Space Mono';
+    ctx.fillText(label, W - 143, pad + 12 + i*18);
+  });
+
+  // Arrow: feed at bottom
+  ctx.fillStyle = '#00d4ff';
+  ctx.font = '9px Space Mono';
+  ctx.fillText('↑ Feed', cx - 18, pad + bowlH + 14);
+  ctx.fillText('↓ Discharge', cx - 28, pad - 6);
+}
+
+// ── MAIN RUN ──
+function runSimulation() {
+  const p = getParams();
+  if (p.rA >= p.rB || p.rhoP <= p.rhoF) {
+    document.getElementById('statusPill').textContent = 'INVALID PARAMS';
+    document.getElementById('statusPill').className = 'status-pill status-warn';
+    return;
+  }
+  const res = compute(p);
+
+  const Q_max_mls = res.Q_max * 1e6;
+  const Q_act_mls = p.Q * 1e6;
+
+  document.getElementById('rQmax').innerHTML    = Q_max_mls.toFixed(3)        + '<span class="rc-unit">mL/s</span>';
+  document.getElementById('rQact').innerHTML    = Q_act_mls.toFixed(3)        + '<span class="rc-unit">mL/s</span>';
+  document.getElementById('rTres').innerHTML    = res.tRes.toFixed(2)         + '<span class="rc-unit">s</span>';
+  document.getElementById('rTsettle').innerHTML = res.tSettle.toFixed(2)      + '<span class="rc-unit">s</span>';
+  document.getElementById('rSigma').innerHTML   = res.sigma.toExponential(2)  + '<span class="rc-unit">m²</span>';
+  document.getElementById('rGfactor').innerHTML = res.gFactor.toFixed(0)      + '<span class="rc-unit">× g</span>';
+
+  const pill = document.getElementById('statusPill');
+  if (p.Q <= res.Q_max) {
+    pill.innerHTML = '✓ GOOD SEPARATION &nbsp;·&nbsp; Q ≤ Q<sub>max</sub>';
+    pill.className = 'status-pill status-ok';
+  } else {
+    const pct = ((p.Q - res.Q_max) / res.Q_max * 100).toFixed(1);
+    pill.innerHTML = '✗ POOR SEPARATION &nbsp;·&nbsp; Q exceeds Q<sub>max</sub> by ' + pct + '%';
+    pill.className = 'status-pill status-warn';
+  }
+
+  updateCharts(p, res);
+  drawBowl(p, res);
+}
+
+// Init
+initCharts();
+runSimulation();
+
+window.addEventListener('resize', () => {
+  const p = getParams();
+  const res = compute(p);
+  drawBowl(p, res);
+});
+</script>
+</body>
+</html>
